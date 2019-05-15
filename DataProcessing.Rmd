@@ -25,7 +25,8 @@ protests <- protests %>% left_join(capitals, by = c("country")) %>%
   # is the national capital
   filter(str_detect(location, paste("(?i)(\\bnational\\b)|(", capital, ")", sep = ""))) %>%
   # Discard unneeded columns
-  select(country, year, protesterviolence, location, participants, protesteridentity, 19:29) %>%
+  select(country, region, year, protesterviolence, 
+         location, participants, protesteridentity, 19:29) %>%
   # Extract number of participants
   mutate(size = parse_number(as.character(participants)))
 # Fix text-based numbers
@@ -69,11 +70,23 @@ internet[internet$Country.Name == "Egypt, Arab Rep.", "Country.Name"] <- "Egypt"
 
 ### VDem Data
 ```{r}
+# ## Loading from original dataset (commented out because BIG)
+# vdem <- read.csv("./Data/Country_Year_V-Dem_Full+others_CSV_v9/V-Dem_post_1990.csv")
+# vdem <- vdem %>% select(country_name, year, v2mecenefm, v2mecenefi, v2mecrit, v2merange, 
+#                         v2meharjrn, v2mecorrpt, v2psbars, v2clacfree, v2clkill, v2clstown,
+#                         v2clsocgrp, v2pepwrses) %>%
+#   rename(censorship = v2mecenefm, internetCensorship = v2mecenefi, critical = v2mecrit, 
+#          mediaRange = v2merange, harrassJournalists = v2meharjrn, corrupt = v2mecorrpt,
+#          partyBarriers = v2psbars, academicCulturalExpression = v2clacfree, 
+#          politicalMurder = v2clkill, stateEconomyControl = v2clstown, socialEquality = v2clsocgrp,
+#          socioEconomicPower = v2pepwrses)
+# write.csv(vdem, "./Data/VDemSubset.csv", row.names = FALSE)
 vdem <- read.csv("./Data/VDemSubset.csv")
 ```
 
 ### Join Data
 ```{r}
+regions <- protests %>% select(country, region) %>% distinct()
 byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum(size),
                                                              meanProtestors = mean(size),
                                                              medianProtestors = median(size),
@@ -86,6 +99,11 @@ byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum
   left_join(internet, by = c("country" = "Country.Name",
                              "year" = "Year")) %>%
   left_join(vdem, by = c("country" = "country_name",
-                         "year" = "year"))
+                         "year" = "year")) %>%
+  left_join(regions, by = c("country" = "country"))
 countryList <- byYear %>% select(country) %>% distinct()
+regionList <- byYear %>% ungroup() %>% select(region) %>% distinct() %>% arrange(region) %>%
+  mutate(names = c("South America", "Central America", "Carribean/North America",
+                   "Europe", "Asia", "Middle East/North Africa", "Sub-Saharan Africa",
+                   "Oceania"))
 ```
