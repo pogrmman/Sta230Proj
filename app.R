@@ -1,12 +1,15 @@
+### Libraries ###
 library(shiny)
 library(ggplot2)
 library(dplyr)
 
+### Load Data from R markdown file ###
 knitr::knit("DataProcessing.Rmd", tangle = TRUE, output = "DataProcessing.R")
 source("DataProcessing.R")
 
+### UI Setup ###
 ui <- fluidPage(
-  titlePanel("Internet Usage and Protests"),
+  titlePanel("Protests Across the World"),
   
   sidebarLayout(
     sidebarPanel(
