@@ -48,7 +48,9 @@ ui <- fluidPage(
   )
 )
 
+### Server Setup ###
 server <- function(input, output, session) {
+  # Allow selection of countries by region
   observe({
     if(!is.null(input$region)) {
       regionsSelected <- (regionList %>% filter(names %in% input$region))$region
@@ -57,7 +59,9 @@ server <- function(input, output, session) {
       updateSelectInput(session, inputId = "country", selected = countries$country)
     }
   })
+  # Plot setup
   output$InternetUsage <- renderPlot({
+    # General control options for plot appearance
     if(!is.null(input$country)) {
       data <- byYear %>% filter(country %in% input$country)
       countries = TRUE
@@ -70,6 +74,8 @@ server <- function(input, output, session) {
     } else if(input$bestFitLine == "No") {
       includeLine = FALSE
     }
+    
+    # Setup plot variables and labels
     xvar <- switch(input$xAxis,
                  "Internet Access" = "InternetUsers",
                  "Year" = "year",
@@ -106,6 +112,8 @@ server <- function(input, output, session) {
                    "Sum of Protestors" = "Annual Protestors (percent of population)",
                    "Mean Protest Size" = "Mean Protest Size (percent of population)",
                    "Total Protests" = "Annual Number of Protests")
+    
+    # Generate Plots
     if(countries & includeLine) {
       plt <- ggplot(data, aes(x = get(xvar), y = get(yvar), color = country)) +
         geom_point(size = 4) + geom_smooth(method = "lm", se = FALSE) +
