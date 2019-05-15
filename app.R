@@ -65,7 +65,7 @@ server <- function(input, output, session) {
   output$InternetUsage <- renderPlotly({
     # General control options for plot appearance
     if(!is.null(input$country)) {
-      data <- byYear %>% filter(country %in% input$country)
+      data <- byYear %>% filter(country %in% input$country) %>% arrange(country)
       countries = TRUE
     } else {
       data <- byYear
