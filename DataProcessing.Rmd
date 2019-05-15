@@ -11,10 +11,13 @@ library(dplyr)
 library(stringr)
 library(readr)
 library(tidyr)
+library(caret)
+library(pls)
+library(ncvreg)
 ```
 
 ### Protest Data Cleaning
-```{r}
+```{r, warning = FALSE}
 protests <- read.csv("./Data/Protests.tab", sep = "\t", encoding = "UTF-8")
 capitals <- read.csv("./Data/CountryCapitals.csv", sep = "\t", encoding = "UTF-8")
 capitals <- capitals %>% mutate(country = trimws(as.character(country), which = "right"),
@@ -85,7 +88,7 @@ vdem <- read.csv("./Data/VDemSubset.csv")
 ```
 
 ### Join Data
-```{r}
+```{r, warning = FALSE}
 regions <- protests %>% select(country, region) %>% distinct()
 byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum(size),
                                                              meanProtestors = mean(size),
@@ -106,4 +109,35 @@ regionList <- byYear %>% ungroup() %>% select(region) %>% distinct() %>% arrange
   mutate(names = c("South America", "Central America", "Carribean/North America",
                    "Europe", "Asia", "Middle East/North Africa", "Sub-Saharan Africa",
                    "Oceania"))
+```
+
+### Modeling
+```{r, warning = FALSE}
+# Select variables of interest
+noNulls <- na.omit(byYear)
+noNulls <- noNulls %>% select(country, popPctMean, Population, 
+                              InternetUsers, censorship, internetCensorship,
+                              critical, mediaRange, harrassJournalists, corrupt, partyBarriers, 
+                              academicCulturalExpression, politicalMurder,
+                              stateEconomyControl, socialEquality, socioEconomicPower)
+
+# Model using partial least squares
+set.seed(15)
+fit.control <- trainControl(method = "repeatedcv", number = 5, repeats = 10)
+model <- formula(popPctMean ~ InternetUsers + censorship + internetCensorship +
+                   critical + mediaRange + harrassJournalists + corrupt + partyBarriers +
+                   academicCulturalExpression + politicalMurder + stateEconomyControl +
+                   socialEquality + socioEconomicPower)
+pls.fit <- train(model, data = noNulls, method = "pls", 
+                 trControl = fit.control, tuneGrid = data.frame(ncomp = 1:13))
+pls.fit$finalModel$loadings
+varImp(pls.fit)
+
+# Model with LASSO
+set.seed(15)
+lasso.fit <- cv.ncvreg(X = noNulls[,-1:-3], y = noNulls$popPctMean, penalty = "lasso")
+coeffs <- lasso.fit$fit$beta[,lasso.fit$fit$lambda == lasso.fit$lambda.min]
+coeffs <- coeffs[coeffs!=0]
+summary(lasso.fit)
+coeffs
 ```
