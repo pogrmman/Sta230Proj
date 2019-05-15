@@ -41,17 +41,34 @@ non_numeric <- protests %>% filter(is.na(size)) %>%
                           str_detect(participants, "(?i)^few dozen") ~ 10))
 # Merge it back in and calculate order of magnitude
 protests <- protests %>% filter(!is.na(size)) %>%  bind_rows(non_numeric) %>%
-  mutate(size = 10^(floor(log10(size))))
+  mutate(size = 10^(floor(log10(size)))) %>% mutate(size = as.numeric(size))
+rm(non_numeric)
 ```
 
-### Standarize for Population
+### Load Population Data
 ```{r}
 # Get population information
 populations <- read.csv("./Data/Population/Countries.csv", skip = 4)
 populations <- populations %>% select(Country.Name, 35:62) %>%
   gather("Year", "Population", 2:29) %>% mutate(Year = parse_number(Year))
-# Join with protest data
-protests <- protests %>% left_join(populations, by=c("country" = "Country.Name",
-                                                     "year" = "Year")) %>%
-  mutate(size = as.numeric(size)) %>% mutate(popPct = (size / Population) * 100)
+```
+
+### Load Internet Data
+```{r}
+# Get internet use info
+internet <- read.csv("./Data/Internet/Users.csv", skip = 4)
+internet <- internet %>% select(Country.Name, 35:62) %>%
+  gather("Year", "InternetUsers", 2:29) %>% mutate(Year = parse_number(Year)) %>%
+  mutate(Country.Name = as.character(Country.Name))
+internet[internet$Country.Name == "Iran, Islamic Rep.", "Country.Name"] <- "Iran"
+```
+
+### Join Data
+```{r}
+byYear <- protests %>% group_by(country, year) %>% summarize(protestors = sum(size)) %>%
+  left_join(populations, by = c("country" = "Country.Name",
+                                "year" = "Year")) %>%
+  mutate(popPct = (protestors / Population) * 100) %>%
+  left_join(internet, by = c("country" = "Country.Name",
+                             "year" = "Year"))
 ```
