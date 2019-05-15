@@ -1,0 +1,57 @@
+---
+title: "Protests and Internet"
+author: "Alexander Mohn"
+date: "May 14, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(stringr)
+library(readr)
+library(tidyr)
+```
+
+### Protest Data Cleaning
+```{r}
+protests <- read.csv("./Data/Protests.tab", sep = "\t", encoding = "UTF-8")
+capitals <- read.csv("./Data/CountryCapitals.csv", sep = "\t", encoding = "UTF-8")
+capitals <- capitals %>% mutate(country = trimws(as.character(country), which = "right"),
+                                capital = trimws(as.character(capital), which = "right")) %>%
+  mutate(capital = str_replace_all(capital, "-", " "))
+protests <- protests %>% left_join(capitals, by = c("country")) %>%
+  # Selects, case-insensitively, protests where the location is either national or
+  # is the national capital
+  filter(str_detect(location, paste("(?i)(\\bnational\\b)|(", capital, ")", sep = ""))) %>%
+  # Discard unneeded columns
+  select(country, year, protesterviolence, location, participants, protesteridentity, 19:29) %>%
+  # Extract number of participants
+  mutate(size = parse_number(as.character(participants)))
+# Fix text-based numbers
+non_numeric <- protests %>% filter(is.na(size)) %>%
+  mutate(size = case_when(str_detect(participants, "(?i)^dozens") ~ 10,
+                          str_detect(participants, "(?i)^thousands") ~ 1000,
+                          str_detect(participants, "(?i)^tens of thousands") ~ 10000,
+                          str_detect(participants, "(?i)^hundreds of thousands") ~ 100000,
+                          str_detect(participants, "(?i)^hundreds") ~ 100,
+                          str_detect(participants, "(?i)^(several)|(a few) hundred") ~ 100,
+                          str_detect(participants, "(?i)^(several)|(a few) thousand") ~ 1000,
+                          str_detect(participants, "(?i)million") ~ 1000000,
+                          str_detect(participants, "(?i)^few dozen") ~ 10))
+# Merge it back in and calculate order of magnitude
+protests <- protests %>% filter(!is.na(size)) %>%  bind_rows(non_numeric) %>%
+  mutate(size = 10^(floor(log10(size))))
+```
+
+### Standarize for Population
+```{r}
+# Get population information
+populations <- read.csv("./Data/Population/Countries.csv", skip = 4)
+populations <- populations %>% select(Country.Name, 35:62) %>%
+  gather("Year", "Population", 2:29) %>% mutate(Year = parse_number(Year))
+# Join with protest data
+protests <- protests %>% left_join(populations, by=c("country" = "Country.Name",
+                                                     "year" = "Year")) %>%
+  mutate(size = as.numeric(size)) %>% mutate(popPct = (size / Population) * 100)
+```
