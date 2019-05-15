@@ -2,6 +2,7 @@
 library(shiny)
 library(ggplot2)
 library(dplyr)
+library(plotly)
 
 ### Load Data from R markdown file ###
 knitr::knit("DataProcessing.Rmd", tangle = TRUE, output = "DataProcessing.R")
@@ -44,7 +45,7 @@ ui <- fluidPage(
                    selected = "Yes")
     ),
     
-    mainPanel(plotOutput("InternetUsage", height = "500"))
+    mainPanel(plotlyOutput("InternetUsage", height = "500"))
   )
 )
 
@@ -59,8 +60,9 @@ server <- function(input, output, session) {
       updateSelectInput(session, inputId = "country", selected = countries$country)
     }
   })
+  
   # Plot setup
-  output$InternetUsage <- renderPlot({
+  output$InternetUsage <- renderPlotly({
     # General control options for plot appearance
     if(!is.null(input$country)) {
       data <- byYear %>% filter(country %in% input$country)
@@ -115,27 +117,27 @@ server <- function(input, output, session) {
     
     # Generate Plots
     if(countries & includeLine) {
-      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar), color = country)) +
+      plt <- ggplot(data, aes(x = !!ensym(xvar), y = !!ensym(yvar), color = country)) +
         geom_point(size = 4) + geom_smooth(method = "lm", se = FALSE) +
         labs(x = xLabel,
              y = yLabel)
     } else if(!countries & includeLine) {
-      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar))) +
+      plt <- ggplot(data, aes(x = !!ensym(xvar), y = !!ensym(yvar))) +
         geom_point(size = 4) + geom_smooth(method = "lm", se = FALSE) +
         labs(x = xLabel,
              y = yLabel)
     } else if(countries & !includeLine) {
-      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar), color = country)) +
+      plt <- ggplot(data, aes(x = !!ensym(xvar), y = !!ensym(yvar), color = country)) +
         geom_point(size = 4) +
         labs(x = xLabel,
              y = yLabel)
     } else if(!countries & !includeLine) {
-      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar))) +
+      plt <- ggplot(data, aes(x = !!ensym(xvar), y = !!ensym(yvar))) +
         geom_point(size = 4) +
         labs(x = xLabel,
              y = yLabel)
     }
-    plt
+    ggplotly(plt) %>% config(displayModeBar = FALSE)
   })
 }
 
