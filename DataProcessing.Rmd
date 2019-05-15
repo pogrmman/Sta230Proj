@@ -65,10 +65,16 @@ internet[internet$Country.Name == "Iran, Islamic Rep.", "Country.Name"] <- "Iran
 
 ### Join Data
 ```{r}
-byYear <- protests %>% group_by(country, year) %>% summarize(protestors = sum(size)) %>%
+byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum(size),
+                                                             meanProtestors = mean(size),
+                                                             medianProtestors = median(size),
+                                                             numberProtests = n()) %>%
   left_join(populations, by = c("country" = "Country.Name",
                                 "year" = "Year")) %>%
-  mutate(popPct = (protestors / Population) * 100) %>%
+  mutate(popPctSum = (sumProtestors / Population) * 100,
+         popPctMean = (meanProtestors / Population) * 100,
+         popPctMedian = (medianProtestors / Population) * 100) %>%
   left_join(internet, by = c("country" = "Country.Name",
-                             "year" = "Year"))
+                             "year" = "Year")) %>%
+  mutate(halfDecade = 5 * floor(year / 5))
 ```
