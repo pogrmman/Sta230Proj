@@ -9,14 +9,15 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      radioButtons("xAxis",
-                   label = "By year or by internet access",
-                   choices = list("By Year", "By Internet Access"),
-                   selected = "By Internet Access"),
+      selectInput("xAxis",
+                 label = "By year or by internet access",
+                 choices = list("By Year", "By Internet Access", "By Internet Censorship",
+                                "By Media Censorship", "By Criticism of Government",
+                                "By Journalist Harrassment", "By Media Corruption"),
+                 selected = "By Internet Access"),
       selectInput("SummaryType",
                   label = "Summary Type",
-                  choices = list("Sum of Protestors", "Median Protest Size", 
-                                 "Mean Protest Size", "Total Protests"),
+                  choices = list("Sum of Protestors", "Mean Protest Size", "Total Protests"),
                   selected = "Sum of Protestors"),
       selectInput("country",
                   label = "Select Country",
@@ -38,114 +39,40 @@ server <- function(input, output, session) {
       data <- byYear
       countries = FALSE
     }
+    xvar <- switch(input$xAxis,
+                 "By Internet Access" = "InternetUsers",
+                 "By Year" = "year",
+                 "By Internet Censorship" = "internetCensorship",
+                 "By Media Censorship" = "censorship",
+                 "By Criticism of Government" = "critical",
+                 "By Journalist Harrassment" = "harrassJournalists",
+                 "By Media Corruption" = "corrupt")
+    xLabel <- switch(input$xAxis,
+                  "By Internet Access" = "Internet Access (percent of population)",
+                  "By Year" = "Year",
+                  "By Internet Censorship" = "Internet Censorship Index",
+                  "By Media Censorship" = "Media Censorship Index",
+                  "By Criticism of Government" = "Media Criticism of Government Index",
+                  "By Journalist Harrassment" = "Journalist Harrassment Index",
+                  "By Media Corruption" = "Media Corruption Index")
+    yvar <- switch(input$SummaryType,
+                 "Sum of Protestors" = "popPctSum",
+                 "Mean Protest Size" = "popPctMean",
+                 "Total Protests" = "numberProtests")
+    yLabel <- switch(input$SummaryType,
+                   "Sum of Protestors" = "Annual Protestors (percent of population)",
+                   "Mean Protest Size" = "Mean Protest Size (percent of population)",
+                   "Total Protests" = "Annual Number of Protests")
     if(countries) {
-      if(input$xAxis == "By Internet Access") {
-        if(input$SummaryType == "Sum of Protestors") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = popPctSum, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Total Protestors vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Total Protestors (Percent of Population)")
-        } else if (input$SummaryType == "Median Protest Size") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = popPctMedian, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Median Protest Size vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Median Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Mean Protest Size") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = popPctMean, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Mean Protest Size vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Mean Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Total Protests") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = numberProtests, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Number of Protests vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Number of  Protests")
-        } 
-      } else if(input$xAxis == "By Year") {
-        if(input$SummaryType == "Sum of Protestors") {
-          plt <- ggplot(data, aes(x = year, y = popPctSum, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Total Protestors vs. Internet Access",
-                 x = "Year",
-                 y = "Total Protestors (Percent of Population)")
-        } else if (input$SummaryType == "Median Protest Size") {
-          plt <- ggplot(data, aes(x = year, y = popPctMedian, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Median Protest Size vs. Internet Access",
-                 x = "Year",
-                 y = "Median Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Mean Protest Size") {
-          plt <- ggplot(data, aes(x = year, y = popPctMean, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Mean Protest Size vs. Internet Access",
-                 x = "Year",
-                 y = "Mean Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Total Protests") {
-          plt <- ggplot(data, aes(x = year, y = numberProtests, color = country)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Number of Protests vs. Internet Access",
-                 x = "Year",
-                 y = "Number of  Protests")
-        }
-      }
+      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar), color = country)) +
+        geom_point(size = 4) + geom_smooth(method = "lm") +
+        labs(x = xLabel,
+             y = yLabel)
     } else {
-      if(input$xAxis == "By Internet Access") {
-        if(input$SummaryType == "Sum of Protestors") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = popPctSum)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Total Protestors vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Total Protestors (Percent of Population)")
-        } else if (input$SummaryType == "Median Protest Size") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = popPctMedian)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Median Protest Size vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Median Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Mean Protest Size") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = popPctMean)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Mean Protest Size vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Mean Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Total Protests") {
-          plt <- ggplot(data, aes(x = InternetUsers, y = numberProtests)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Number of Protests vs. Internet Access",
-                 x = "Internet Access (Percent of Population)",
-                 y = "Number of  Protests")
-        }
-      } else if(input$xAxis == "By Year") {
-        if(input$SummaryType == "Sum of Protestors") {
-          plt <- ggplot(data, aes(x = year, y = popPctSum)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Total Protestors vs. Internet Access",
-                 x = "Year",
-                 y = "Total Protestors (Percent of Population)")
-        } else if (input$SummaryType == "Median Protest Size") {
-          plt <- ggplot(data, aes(x = year, y = popPctMedian)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Median Protest Size vs. Internet Access",
-                 x = "Year",
-                 y = "Median Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Mean Protest Size") {
-          plt <- ggplot(data, aes(x = year, y = popPctMean)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Mean Protest Size vs. Internet Access",
-                 x = "Year",
-                 y = "Mean Protest Size (Percent of Population)")
-        } else if (input$SummaryType == "Total Protests") {
-          plt <- ggplot(data, aes(x = year, y = numberProtests)) +
-            geom_point(size=5) + geom_smooth(method = "lm") + 
-            labs(title = "Number of Protests vs. Internet Access",
-                 x = "Year",
-                 y = "Number of  Protests")
-        }
-      }
+      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar))) +
+        geom_point(size = 4) + geom_smooth(method = "lm") +
+        labs(x = xLabel,
+             y = yLabel)
     }
     plt
   })

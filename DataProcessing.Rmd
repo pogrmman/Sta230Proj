@@ -67,6 +67,11 @@ internet[internet$Country.Name == "Iran, Islamic Rep.", "Country.Name"] <- "Iran
 internet[internet$Country.Name == "Egypt, Arab Rep.", "Country.Name"] <- "Egypt"
 ```
 
+### VDem Data
+```{r}
+vdem <- read.csv("./Data/VDemSubset.csv")
+```
+
 ### Join Data
 ```{r}
 byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum(size),
@@ -80,6 +85,7 @@ byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum
          popPctMedian = (medianProtestors / Population) * 100) %>%
   left_join(internet, by = c("country" = "Country.Name",
                              "year" = "Year")) %>%
-  mutate(halfDecade = 5 * floor(year / 5))
+  left_join(vdem, by = c("country" = "country_name",
+                         "year" = "year"))
 countryList <- byYear %>% select(country) %>% distinct()
 ```
