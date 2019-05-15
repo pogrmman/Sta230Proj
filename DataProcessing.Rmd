@@ -50,7 +50,10 @@ rm(non_numeric)
 # Get population information
 populations <- read.csv("./Data/Population/Countries.csv", skip = 4)
 populations <- populations %>% select(Country.Name, 35:62) %>%
-  gather("Year", "Population", 2:29) %>% mutate(Year = parse_number(Year))
+  gather("Year", "Population", 2:29) %>% mutate(Year = parse_number(Year)) %>%
+  mutate(Country.Name = as.character(Country.Name))
+populations[populations$Country.Name == "Iran, Islamic Rep.", "Country.Name"] <- "Iran"
+populations[populations$Country.Name == "Egypt, Arab Rep.", "Country.Name"] <- "Egypt"
 ```
 
 ### Load Internet Data
@@ -61,6 +64,7 @@ internet <- internet %>% select(Country.Name, 35:62) %>%
   gather("Year", "InternetUsers", 2:29) %>% mutate(Year = parse_number(Year)) %>%
   mutate(Country.Name = as.character(Country.Name))
 internet[internet$Country.Name == "Iran, Islamic Rep.", "Country.Name"] <- "Iran"
+internet[internet$Country.Name == "Egypt, Arab Rep.", "Country.Name"] <- "Egypt"
 ```
 
 ### Join Data
@@ -77,4 +81,5 @@ byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum
   left_join(internet, by = c("country" = "Country.Name",
                              "year" = "Year")) %>%
   mutate(halfDecade = 5 * floor(year / 5))
+countryList <- byYear %>% select(country) %>% distinct()
 ```
