@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+# Ignore zip files and metadata
+*.zip
+Metadata*
