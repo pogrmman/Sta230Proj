@@ -1,5 +1,6 @@
 library(shiny)
 library(ggplot2)
+library(dplyr)
 
 knitr::knit("DataProcessing.Rmd", tangle = TRUE, output = "DataProcessing.R")
 source("DataProcessing.R")
@@ -11,9 +12,14 @@ ui <- fluidPage(
     sidebarPanel(
       selectInput("xAxis",
                  label = "By year or by internet access",
-                 choices = list("By Year", "By Internet Access", "By Internet Censorship",
-                                "By Media Censorship", "By Criticism of Government",
-                                "By Journalist Harrassment", "By Media Corruption"),
+                 choices = list("Year", "Internet Access", "Internet Censorship",
+                                "Media Censorship", "Media Criticism of Government",
+                                "Journalist Harrassment", "Media Corruption",
+                                "Political Party Barriers", 
+                                "Freedom of Academic/Cultural Expression",
+                                "Political Killings", "State Control of Economy",
+                                "Social Equality in Civil Liberties",
+                                "Power by Socioeconomic Class"),
                  selected = "By Internet Access"),
       selectInput("SummaryType",
                   label = "Summary Type",
@@ -23,7 +29,16 @@ ui <- fluidPage(
                   label = "Select Country",
                   choices = countryList,
                   multiple = TRUE,
-                  selected = NULL)
+                  selected = NULL),
+      selectInput("region",
+                  label = "Region",
+                  choices = regionList$names,
+                  multiple = TRUE,
+                  selected = NULL),
+      radioButtons("bestFitLine",
+                   label = "Include linear best fit?",
+                   choices = list("Yes", "No"),
+                   selected = "Yes")
     ),
     
     mainPanel(plotOutput("InternetUsage", height = "500"))
@@ -31,6 +46,14 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  observe({
+    if(!is.null(input$region)) {
+      regionsSelected <- (regionList %>% filter(names %in% input$region))$region
+      countries <- as.list(regions %>% filter(region %in% regionsSelected) %>% 
+                           select(country) %>% arrange(country))
+      updateSelectInput(session, inputId = "country", selected = countries$country)
+    }
+  })
   output$InternetUsage <- renderPlot({
     if(!is.null(input$country)) {
       data <- byYear %>% filter(country %in% input$country)
@@ -39,22 +62,39 @@ server <- function(input, output, session) {
       data <- byYear
       countries = FALSE
     }
+    if(input$bestFitLine == "Yes") {
+      includeLine = TRUE
+    } else if(input$bestFitLine == "No") {
+      includeLine = FALSE
+    }
     xvar <- switch(input$xAxis,
-                 "By Internet Access" = "InternetUsers",
-                 "By Year" = "year",
-                 "By Internet Censorship" = "internetCensorship",
-                 "By Media Censorship" = "censorship",
-                 "By Criticism of Government" = "critical",
-                 "By Journalist Harrassment" = "harrassJournalists",
-                 "By Media Corruption" = "corrupt")
+                 "Internet Access" = "InternetUsers",
+                 "Year" = "year",
+                 "Internet Censorship" = "internetCensorship",
+                 "Media Censorship" = "censorship",
+                 "Media Criticism of Government" = "critical",
+                 "Journalist Harrassment" = "harrassJournalists",
+                 "Media Corruption" = "corrupt",
+                 "Political Party Barriers" = "partyBarriers",
+                 "Freedom of Academic/Cultural Expression" = "academicCulturalExpression",
+                 "Political Killings" = "politicalMurder",
+                 "State Control of Economy" = "stateEconomyControl",
+                 "Social Equality in Civil Liberties" = "socialEquality",
+                 "Power by Socioeconomic Class" = "socioEconomicPower")
     xLabel <- switch(input$xAxis,
-                  "By Internet Access" = "Internet Access (percent of population)",
-                  "By Year" = "Year",
-                  "By Internet Censorship" = "Internet Censorship Index",
-                  "By Media Censorship" = "Media Censorship Index",
-                  "By Criticism of Government" = "Media Criticism of Government Index",
-                  "By Journalist Harrassment" = "Journalist Harrassment Index",
-                  "By Media Corruption" = "Media Corruption Index")
+                  "Internet Access" = "Internet Access (percent of population)",
+                  "Year" = "Year",
+                  "Internet Censorship" = "Internet Censorship Index",
+                  "Media Censorship" = "Media Censorship Index",
+                  "Media Criticism of Government" = "Media Criticism of Government Index",
+                  "Journalist Harrassment" = "Journalist Harrassment Index",
+                  "Media Corruption" = "Media Corruption Index",
+                  "Political Party Barriers" = "Barriers to Political Parties Index",
+                  "Freedom of Academic/Cultural Expression" = "Freedom of Expression Index",
+                  "Political Killings" = "Political Killings Index",
+                  "State Control of Economy" = "State Control of Economy Index",
+                  "Social Equality in Civil Liberties" = "Social Equality Index",
+                  "Power by Socioeconomic Class" = "Socioeconomic Power Index")
     yvar <- switch(input$SummaryType,
                  "Sum of Protestors" = "popPctSum",
                  "Mean Protest Size" = "popPctMean",
@@ -63,14 +103,24 @@ server <- function(input, output, session) {
                    "Sum of Protestors" = "Annual Protestors (percent of population)",
                    "Mean Protest Size" = "Mean Protest Size (percent of population)",
                    "Total Protests" = "Annual Number of Protests")
-    if(countries) {
+    if(countries & includeLine) {
       plt <- ggplot(data, aes(x = get(xvar), y = get(yvar), color = country)) +
-        geom_point(size = 4) + geom_smooth(method = "lm") +
+        geom_point(size = 4) + geom_smooth(method = "lm", se = FALSE) +
         labs(x = xLabel,
              y = yLabel)
-    } else {
+    } else if(!countries & includeLine) {
       plt <- ggplot(data, aes(x = get(xvar), y = get(yvar))) +
-        geom_point(size = 4) + geom_smooth(method = "lm") +
+        geom_point(size = 4) + geom_smooth(method = "lm", se = FALSE) +
+        labs(x = xLabel,
+             y = yLabel)
+    } else if(countries & !includeLine) {
+      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar), color = country)) +
+        geom_point(size = 4) +
+        labs(x = xLabel,
+             y = yLabel)
+    } else if(!countries & !includeLine) {
+      plt <- ggplot(data, aes(x = get(xvar), y = get(yvar))) +
+        geom_point(size = 4) +
         labs(x = xLabel,
              y = yLabel)
     }
