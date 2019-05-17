@@ -14,6 +14,7 @@ library(tidyr)
 library(caret)
 library(pls)
 library(ncvreg)
+library(factoextra)
 ```
 
 ### Protest Data Cleaning
@@ -115,7 +116,7 @@ regionList <- byYear %>% ungroup() %>% select(region) %>% distinct() %>% arrange
 ```{r, warning = FALSE}
 # Select variables of interest
 noNulls <- na.omit(byYear)
-noNulls <- noNulls %>% select(country, popPctMean, Population, 
+noNulls <- noNulls %>% select(country, year, popPctMean, Population, 
                               InternetUsers, censorship, internetCensorship,
                               critical, mediaRange, harrassJournalists, corrupt, partyBarriers, 
                               academicCulturalExpression, politicalMurder,
@@ -140,4 +141,44 @@ coeffs <- lasso.fit$fit$beta[,lasso.fit$fit$lambda == lasso.fit$lambda.min]
 coeffs <- coeffs[coeffs!=0]
 summary(lasso.fit)
 coeffs
+```
+
+### Clustering
+```{r, warning = FALSE}
+clust <- noNulls %>% ungroup() %>% select(-country, -year)
+row.names(clust) <- paste(noNulls$country, noNulls$year, sep = "_")
+dist <- daisy(scale(clust), metric = "gower")
+pmClusts <- pam(dist, scale(clust), k = 3) # Number of clusters from gap method
+pm$medoids
+pm$clusinfo
+print("Cluster 1:")
+colMeans(clust[pm$clustering == 1,])
+print("Cluster 2:")
+colMeans(clust[pm$clustering == 2,])
+print("Cluster 3:")
+colMeans(clust[pm$clustering == 3,])
+clust$cluster <- pm$clustering
+names <- row.names(clust)
+clust$country <- unlist(str_split(names, "_"))[1]
+clust$year <- unlist(str_split(names, "_"))[2]
+```
+
+### Modeling with clusters
+```{r, warning = FALSE}
+set.seed(15)
+model <- formula(popPctMean ~ InternetUsers + censorship + internetCensorship +
+                   critical + mediaRange + harrassJournalists + corrupt + partyBarriers +
+                   academicCulturalExpression + politicalMurder + stateEconomyControl +
+                   socialEquality + socioEconomicPower + cluster)
+pls.fit.clust <- train(model, data = clust, method = "pls", trControl = fit.control, 
+                       tuneGrid = data.frame(ncomp = 1:14))
+pls.fit.clust$finalModel$loadings
+varImp(pls.fit.clust)
+
+set.seed(15)
+lasso.fit.clust <- cv.ncvreg(X = clust[,c(-1,-17:-18)], y = clust$popPctMean, penalty = "lasso")
+coeffs.clust <- lasso.fit.clust$fit$beta[,lasso.fit.clust$fit$lambda == lasso.fit.clust$lambda.min]
+coeffs.clust <- coeffs.clust[coeffs.clust != 0]
+summary(lasso.fit.clust)
+coeffs.clust
 ```
