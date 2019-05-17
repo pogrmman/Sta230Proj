@@ -9,3 +9,7 @@ Metadata*
 DataProcessing.R
 # Ignore raw V-Dem dataset
 Data/Country_Year_V-Dem_Full+others_CSV_v9/*
+# Ignore rsconnect for shinyapps.io
+rsconnect/*
+# Ignore loaded .docx
+*.docx
