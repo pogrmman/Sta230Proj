@@ -136,10 +136,13 @@ regionList <- byYear %>% ungroup() %>% select(region) %>% distinct() %>% arrange
                    "Europe", "Asia", "Middle East/North Africa", "Sub-Saharan Africa",
                    "Oceania"))
 ```
-We consolidate the data from each country and year together, calculating a total percentage of the
-population that participated in protests that year, along with a mean and median protest size and
-a total number of protests in that year. We also rename the V-Dem regions to match their geographic
-locations.
+For each country and year, we calculate the number of protests in that year, a (rough) number of
+people who participated in protests, and mean and median protest size. We merge data on the
+population of the country in each year and convert number of protest participants and protest sizes
+into a percentage of population so that we can compare different sized countries to one another. We
+then merge the V-Dem indicators and internet access data. After that, we rename all of the Mass
+Mobilization assigned regions to a human-readable description, instead of a number. These
+descriptions were created by looking at a list of countries in each region.
 
 ### Modeling
 ```{r, warning = FALSE}
