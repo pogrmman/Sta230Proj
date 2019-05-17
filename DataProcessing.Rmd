@@ -1,12 +1,13 @@
 ---
-title: "Protests and Internet"
+title: "Protests, the Internet, and Democracy"
 author: "Alexander Mohn"
 date: "May 14, 2019"
-output: html_document
+output: word_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.width = 7.8)
 library(dplyr)
 library(stringr)
 library(readr)
@@ -15,15 +16,22 @@ library(caret)
 library(pls)
 library(ncvreg)
 library(factoextra)
+library(cluster)
 ```
 
+# Methods
 ### Protest Data Cleaning
 ```{r, warning = FALSE}
+# Load protest and capital data
 protests <- read.csv("./Data/Protests.tab", sep = "\t", encoding = "UTF-8")
 capitals <- read.csv("./Data/CountryCapitals.csv", sep = "\t", encoding = "UTF-8")
+# Trim whitespace from capitals and eliminate dashes
+# ie. Port-au-Prince becomes Port au Prince for consistency with protest data
 capitals <- capitals %>% mutate(country = trimws(as.character(country), which = "right"),
                                 capital = trimws(as.character(capital), which = "right")) %>%
   mutate(capital = str_replace_all(capital, "-", " "))
+
+# Select protests and get size
 protests <- protests %>% left_join(capitals, by = c("country")) %>%
   # Selects, case-insensitively, protests where the location is either national or
   # is the national capital
@@ -49,6 +57,13 @@ protests <- protests %>% filter(!is.na(size)) %>%  bind_rows(non_numeric) %>%
   mutate(size = 10^(floor(log10(size)))) %>% mutate(size = as.numeric(size))
 rm(non_numeric)
 ```
+To get the protest data that we want, we first need to add in the national capitals of each country.
+We then selected only those protests that occurred nationwide or in the national capital. This 
+excludes protests for primarily regional interests -- like Quebecois independence. Presumably,
+protests that happen in the capital also tend to be more important than those that aren't.
+Next, we convert from the text indicating protest size to a number. Because many of the size
+estimates are quite vague (like "several thousand") and encompass a range of numbers, we convert
+this into an order of magnitude.
 
 ### Load Population Data
 ```{r}
@@ -57,9 +72,11 @@ populations <- read.csv("./Data/Population/Countries.csv", skip = 4)
 populations <- populations %>% select(Country.Name, 35:62) %>%
   gather("Year", "Population", 2:29) %>% mutate(Year = parse_number(Year)) %>%
   mutate(Country.Name = as.character(Country.Name))
+# Fix naming differences
 populations[populations$Country.Name == "Iran, Islamic Rep.", "Country.Name"] <- "Iran"
 populations[populations$Country.Name == "Egypt, Arab Rep.", "Country.Name"] <- "Egypt"
 ```
+To load the population data, we pull in the data and change some minor naming differnces.
 
 ### Load Internet Data
 ```{r}
@@ -71,6 +88,7 @@ internet <- internet %>% select(Country.Name, 35:62) %>%
 internet[internet$Country.Name == "Iran, Islamic Rep.", "Country.Name"] <- "Iran"
 internet[internet$Country.Name == "Egypt, Arab Rep.", "Country.Name"] <- "Egypt"
 ```
+We do the same process as for the population data.
 
 ### VDem Data
 ```{r}
@@ -87,10 +105,15 @@ internet[internet$Country.Name == "Egypt, Arab Rep.", "Country.Name"] <- "Egypt"
 # write.csv(vdem, "./Data/VDemSubset.csv", row.names = FALSE)
 vdem <- read.csv("./Data/VDemSubset.csv")
 ```
+Because the V-Dem dataset is very large, with over 3000 distinct variables, we decided to pull out 
+variables that struck our interest and seemed as if they might be linked to protests.
+We simply pull them out from the dataset and rename them so they're more understandible.
 
 ### Join Data
 ```{r, warning = FALSE}
+# Get V-Dem regions
 regions <- protests %>% select(country, region) %>% distinct()
+# Summarize by country and year
 byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum(size),
                                                              meanProtestors = mean(size),
                                                              medianProtestors = median(size),
@@ -105,12 +128,18 @@ byYear <- protests %>% group_by(country, year) %>% summarize(sumProtestors = sum
   left_join(vdem, by = c("country" = "country_name",
                          "year" = "year")) %>%
   left_join(regions, by = c("country" = "country"))
+# Get distinct countries
 countryList <- byYear %>% select(country) %>% distinct()
+# Rename V-Dem regions from numbers to actual regions
 regionList <- byYear %>% ungroup() %>% select(region) %>% distinct() %>% arrange(region) %>%
   mutate(names = c("South America", "Central America", "Carribean/North America",
                    "Europe", "Asia", "Middle East/North Africa", "Sub-Saharan Africa",
                    "Oceania"))
 ```
+We consolidate the data from each country and year together, calculating a total percentage of the
+population that participated in protests that year, along with a mean and median protest size and
+a total number of protests in that year. We also rename the V-Dem regions to match their geographic
+locations.
 
 ### Modeling
 ```{r, warning = FALSE}
@@ -142,29 +171,48 @@ coeffs <- coeffs[coeffs!=0]
 summary(lasso.fit)
 coeffs
 ```
+We decided to build models that predict the mean protest size as a percent of population in a
+country given the different democracy and internet usage variables by year. We decided to use PLS
+and LASSO to see what variables were most important.
 
 ### Clustering
 ```{r, warning = FALSE}
-clust <- noNulls %>% ungroup() %>% select(-country, -year)
+clust <- noNulls %>% ungroup() %>% select(-country, -year, -popPctMean)
 row.names(clust) <- paste(noNulls$country, noNulls$year, sep = "_")
 dist <- daisy(scale(clust), metric = "gower")
-pmClusts <- pam(dist, scale(clust), k = 3) # Number of clusters from gap method
-pm$medoids
-pm$clusinfo
+pmClusts <- pam(dist, scale(clust), k = 3)
+pmClusts$medoids
+pmClusts$clusinfo
 print("Cluster 1:")
-colMeans(clust[pm$clustering == 1,])
+colMeans(clust[pmClusts$clustering == 1,])
 print("Cluster 2:")
-colMeans(clust[pm$clustering == 2,])
+colMeans(clust[pmClusts$clustering == 2,])
 print("Cluster 3:")
-colMeans(clust[pm$clustering == 3,])
-clust$cluster <- pm$clustering
+colMeans(clust[pmClusts$clustering == 3,])
+clust$cluster <- pmClusts$clustering
 names <- row.names(clust)
-clust$country <- unlist(str_split(names, "_"))[1]
-clust$year <- unlist(str_split(names, "_"))[2]
+clust$countryYear<- row.names(clust)
+clust <- clust %>% separate(countryYear, into = c("country", "year"), sep = "_") %>%
+  mutate(year = as.numeric(year))
+clust <- noNulls %>% select(country, year, popPctMean) %>% 
+  right_join(clust, by = c("country","year"))
 ```
+The elbow method suggested that 2-3 clusters were probably most suitable for this dataset.
+We decided to use 3 instead of 2 becausthere was some additional information captured by the
+third cluster and to make the cluster sizes more even. Cluster 1 has countries that are repressive
+to the media, have large amounts of
+inequality, low freedom of expression, and few internet users. Cluster 3 has countries with less
+control over the media, more equality, and more internet users. Cluster 2 falls between these
+extremes, though the number of internet users is comprable to that of cluster 1. Clusters 1 and 2
+each contain about 2/5 of the countries in the dataset, with the remaining 1/5 in cluster 3.
 
 ### Modeling with clusters
 ```{r, warning = FALSE}
+# Dummy code clusters
+clust$cluster <- as.factor(clust$cluster)
+contrasts(clust$cluster) <- contr.treatment(3)
+
+# PLS Modeling
 set.seed(15)
 model <- formula(popPctMean ~ InternetUsers + censorship + internetCensorship +
                    critical + mediaRange + harrassJournalists + corrupt + partyBarriers +
@@ -172,13 +220,39 @@ model <- formula(popPctMean ~ InternetUsers + censorship + internetCensorship +
                    socialEquality + socioEconomicPower + cluster)
 pls.fit.clust <- train(model, data = clust, method = "pls", trControl = fit.control, 
                        tuneGrid = data.frame(ncomp = 1:14))
+pls.fit.clust$finalModel
 pls.fit.clust$finalModel$loadings
 varImp(pls.fit.clust)
 
+# LASSO Modeling
 set.seed(15)
-lasso.fit.clust <- cv.ncvreg(X = clust[,c(-1,-17:-18)], y = clust$popPctMean, penalty = "lasso")
+lasso.fit.clust <- cv.ncvreg(X = clust[,-1:-4], y = clust$popPctMean, penalty = "lasso")
 coeffs.clust <- lasso.fit.clust$fit$beta[,lasso.fit.clust$fit$lambda == lasso.fit.clust$lambda.min]
 coeffs.clust <- coeffs.clust[coeffs.clust != 0]
 summary(lasso.fit.clust)
 coeffs.clust
+
+# Linear Model 
+set.seed(15)
+model <- formula(popPctMean ~ cluster)
+lm.fit.clust <- train(model, data = clust, method = "lm", trControl = fit.control)
+summary(lm.fit.clust)
+
+# Plot
+resamps <- resamples(list(PLS = pls.fit.clust,
+                          LM = lm.fit.clust,
+                          PLS_NO_CLUST = pls.fit))$values
+resamps <- resamps %>% gather(key = "Var", value = "Val", 2:ncol(resamps)) %>%
+  separate(col = "Var", into = c("Model", "Metric"), sep = "~")
+ggplot(resamps, aes(x = Model, y = Val)) + geom_boxplot() + facet_wrap(~ Metric, scales ="free")
 ```
+
+First, we code cluster membership using dummy coding before running the regressions.
+Next, we use PLS and LASSO regressions including cluster membership to compare with the same
+regressions without cluster membership included.
+We also include a linear model that only uses cluster membership to predict protest size.
+We find that there are significant differnces in protest size between the clusters, especially
+between cluster 3 and cluster 1. 
+We also find that including the cluster parameter improves RMSE of the regression, though not by a
+large amount. A linear model based just on cluster performs just as well as any of the regressions 
+with more variables.
