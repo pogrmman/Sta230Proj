@@ -203,7 +203,7 @@ third cluster and to make the cluster sizes more even. Cluster 1 has countries t
 to the media, have large amounts of
 inequality, low freedom of expression, and few internet users. Cluster 3 has countries with less
 control over the media, more equality, and more internet users. Cluster 2 falls between these
-extremes, though the number of internet users is comprable to that of cluster 1. Clusters 1 and 2
+extremes, though the number of internet users is comparable to that of cluster 1. Clusters 1 and 2
 each contain about 2/5 of the countries in the dataset, with the remaining 1/5 in cluster 3.
 
 ### Modeling with clusters
