@@ -1,6 +1,6 @@
 ---
 title: "Protests, the Internet, and Democracy"
-author: "Alexander Mohn"
+author: "Alexander Mohn and Waez Sheikh"
 date: "May 14, 2019"
 output: word_document
 ---
